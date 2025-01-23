@@ -1,0 +1,10 @@
+Package: motd-raspberrypi
+Source: https://github.com/ozmeta/motd-raspberrypi
+Version: 2025.3
+Section: misc
+Priority: optional
+Architecture: all
+Maintainer: ozmeta
+Description: MOTD script for Raspberry Pi
+ A custom MOTD script to enhance your login (ssh, tty, etc.) screen.
+Homepage: https://github.com/ozmeta/motd-raspberrypi

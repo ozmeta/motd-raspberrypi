@@ -1,0 +1,256 @@
+#!/bin/bash
+
+# https://github.com/ozmeta/motd-raspberrypi
+
+version=2025.3
+
+# Date Format - https://www.cyberciti.biz/faq/linux-unix-formatting-dates-for-display/
+DATE_FORMAT="%a %b %d %Y, %I:%M %p"
+
+# Characters
+BULLET="❯"
+COLON=":"
+
+# Colors - https://misc.flogisoft.com/bash/tip_colors_and_formatting
+PRIMARY="\e[91m"
+SECONDARY="\e[92m"
+TITLE="\e[37;1m"
+SUBTITLE="\e[90m"
+
+INV_PRIMARY="\e[101;30;1m"
+INV_SECONDARY="\e[102;30;1m"
+INV_TITLE="\e[47;30;1m"
+INV_SUBTITLE="\e[100;30m"
+
+RESET="\e[0m"
+
+# System information to view (Ex. #Title !Function -- !Function <characters> !Function)
+SYSTEM_INFO=$(cat <<EOF
+#Last !last_date -- !last_ip
+#Uptime !uptime_days -- !uptime_date
+#Disk !disk_free -- !disk
+#Memory !memory_free -- !memory
+#Temp !cpu_temperature_c -- !cpu_temperature_f
+#CPU !cpu_usage -- !process_count
+#Users !user_count
+#IP !local_ip
+EOF )
+
+# ASCII Art - max width 24 characters
+ASCII_ART=$(cat <<EOF
+${SECONDARY}   .~~.   .~~.
+${SECONDARY}  '. \ ' ' / .'
+${PRIMARY}   .~ .~~~..~.
+${PRIMARY}  : .~.'~'.~. :
+${PRIMARY} ~ (   ) (   ) ~
+${PRIMARY}( : '~'.~.'~' : )
+${PRIMARY} ~ .~ (   ) ~. ~
+${PRIMARY}  (  : '~' :  )
+${PRIMARY}   '~ .~~~. ~'
+${PRIMARY}       '~'
+EOF )
+
+# To customize your configuration and preserve it after each update, create your config file at /etc/motd-config
+source /etc/motd-config 2>/dev/null
+
+############################################################
+#           DO NOT EDIT ANYTHING UNDER THIS LINE           #
+#                                                          #
+#            Unless you know what you are doing            #
+############################################################
+
+# Function to format date
+format_date() {
+    local date
+    date=$(date -d "$*" +"$DATE_FORMAT" 2>/dev/null || date -d "$*" +"%F" 2>/dev/null || date +"$DATE_FORMAT")
+    echo "$date"
+}
+
+# Function to format system information
+format_system_info() {
+    local system_info=""
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue # Skip empty lines
+        system_info+="${RESET}"
+        local line="$(tr -s ' ' <<< "$line")"
+        for arg in $(echo "$line"); do
+            system_info+=" " # Add space between arguments
+            case "$arg" in
+                "#"*)
+                    system_info+="$(echo "${arg:1}" | awk -v t="$TITLE" -v s="$SECONDARY" -v r="$RESET" -v c="$COLON" '{printf "%s%-8s%s%s%s", t, $0, c, r, s}')"
+                    ;;
+                "!"*)
+                    system_info+="$(get_${arg:1} 2>/dev/null)"
+                    ;;
+                "--")
+                    system_info+="${RESET}${SUBTITLE}$BULLET"
+                    ;;
+                *)
+                    system_info+="$arg"
+                    ;;
+            esac
+        done
+        system_info+="${RESET}\n"
+    done <<< "$SYSTEM_INFO"
+    # If ASCII_ART is not empty, paste it with system_info
+    [[ -n "$ASCII_ART" ]] &&
+    paste <(echo "$ASCII_ART") <(echo -e "${RESET}\n$system_info") ||
+    echo -e "$system_info"
+}
+
+# Function to format update count
+format_update_count() {
+    local update_count=$(get_update_count)
+    local plural=$([[ $update_count -ne 1 ]] && echo "s")
+    if [ "$update_count" -gt 0 ]; then
+        local color="$PRIMARY"
+        local inv_color="$INV_PRIMARY"
+    else
+        local color="$SUBTITLE"
+        local inv_color="$INV_SUBTITLE"
+    fi
+    echo -e "${color}$BULLET ${RESET}${inv_color} $update_count ${RESET}${color} package$plural can be upgraded${RESET}"
+}
+
+### Functions to Fetch System Information ###
+
+get_model_info() {
+    # Raspberry Pi model information (ex. Raspberry Pi 5 Model B Rev 1.0)
+    echo "$(cat /sys/firmware/devicetree/base/model | tr -d '\0')"
+}
+
+get_os_info() {
+    # Operating system information (kernel, version, architecture, etc.)
+    echo "$(uname -srm)"
+}
+
+get_user_name() {
+    # Name of the user that you logged in
+    echo "$(logname)"
+}
+
+get_host_name() {
+    # Get hostname
+    echo "$(hostname)"
+}
+
+get_login_date() {
+    # Current login date
+    echo "$(format_date "$(date)")"
+}
+
+get_last_date() {
+    # Last login date
+    echo "$(format_date "$(last $logname -n 1 -F | awk 'NR==1 {print $4, $5, $6, $7, $8}')")"
+}
+
+get_last_ip() {
+    # Last login IP
+    echo "$(last $logname -n 1 -F | awk 'NR==1 {print $3}')"
+}
+
+get_uptime_days() {
+    # Uptime in days
+    echo "$(awk '{days=int($1/86400); print (days == 1 ? "1 day" : days " days")}' /proc/uptime)"
+}
+
+get_uptime_date() {
+    # The date that the device is running since
+    echo "$(format_date "$(uptime -s)")"
+}
+
+get_disk_size() {
+    # Size of the root directory
+    echo "$(df -h --si / | awk 'NR==2 {print $2}')"
+}
+
+get_disk_used() {
+    # Used disk space
+    echo "$(df -h --si / | awk 'NR==2 {print $3}')"
+}
+
+get_disk_free() {
+    # Free disk space
+    echo "$(df -h --si / | awk 'NR==2 {print $4}')"
+}
+
+get_disk() {
+    # Disk usage
+    echo "$(get_disk_used) / $(get_disk_size)"
+}
+
+get_memory_size() {
+    # Total memory size
+    echo "$(free -h --si | awk 'NR==2 {print $2}')"
+}
+
+get_memory_used() {
+    # Used memory
+    echo "$(free -h --si | awk 'NR==2 {print $3}')"
+}
+
+get_memory_free() {
+    # Free memory
+    echo "$(free -h --si | awk 'NR==2 {print $4}')"
+}
+
+get_memory() {
+    # Memory usage
+    echo "$(get_memory_used) / $(get_memory_size)"
+}
+
+get_cpu_temperature() {
+    # Extract raw CPU temperature in Celsius (no suffix)
+    vcgencmd measure_temp | awk -F"[=']" '{printf "%.1f", $2}'
+}
+
+get_cpu_temperature_c() {
+    # CPU temperature in Celsius
+    echo "$(get_cpu_temperature)°C"
+}
+
+get_cpu_temperature_f() {
+    # CPU temperature in Fahrenheit
+    echo "$(awk "BEGIN {printf \"%.1f\", $(get_cpu_temperature) * 9/5 + 32}")°F"
+}
+
+get_cpu_temperature_k() {
+    # CPU temperature in Kelvin
+    echo "$(awk "BEGIN {printf \"%.1f\", $(get_cpu_temperature) + 273.1}")K"
+}
+
+get_cpu_usage() {
+    # CPU usage percentage
+    echo "$(awk '/^cpu /{u=$2;n=$3;s=$4;i=$5;w=$6;t=u+n+s+i+w;it=i+w;c=100*(t-it)/t;printf "%.2f%%", c}' /proc/stat)"
+}
+
+get_process_count() {
+    # Number of running processes
+    echo "$(ps -A --no-headers | wc -l)"
+}
+
+get_user_count() {
+    # Number of logged-in users
+    echo "$(who | wc -l)"
+}
+
+get_local_ip() {
+    # Local IP address
+    echo "$(hostname -I)"
+}
+
+get_update_count() {
+    # Number of upgradable packages
+    echo "$(apt list --upgradable -qq 2>/dev/null | wc -l)"
+}
+
+### Print MOTD ###
+echo -e "$RESET"
+echo -e " ${INV_TITLE} $(get_model_info) ${RESET}${INV_SUBTITLE} $(get_os_info) ${RESET}"
+echo -e "$RESET"
+echo -e " $BULLET Welcome ${INV_PRIMARY} $(get_user_name) ${RESET} to ${PRIMARY}@$(get_host_name)${RESET} ${SUBTITLE}at $(get_login_date)${RESET}"
+echo -e "$RESET"
+echo -e "$(format_system_info | while IFS= read -r line; do printf "   %s\n" "$line"; done)"
+echo -e "$RESET"
+echo -e " $(format_update_count)"
+echo -e "$RESET"
