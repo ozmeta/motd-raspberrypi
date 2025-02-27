@@ -61,7 +61,7 @@ After installation, you can configure the MOTD by either directly editing the co
     ```
 
 2. Modify the content as needed:
-    - **`DATE_FORMAT`**: Set the date format. [(More information)](https://www.cyberciti.biz/faq/linux-unix-formatting-dates-for-display/)
+    - **`DATE_FORMAT`**: Set the date format. [(More information)](docs/date-format.md)
         - 12-Hour: `%a %b %d %Y, %I:%M %p`
         - 24-Hour: `%a %b %d %Y, %H:%M`
     - **`BULLET`**: Set a custom bullet point character (e.g., `❯`, `*`, `-`).
@@ -85,7 +85,7 @@ After installation, you can configure the MOTD by either directly editing the co
         \e[91m   '~ .~~~. ~'
         \e[91m       '~'
         ```
-    - **`SYSTEM_INFO`**: System info management to view.
+    - **`SYSTEM_INFO`**: Manage and view system information. [(More information)](docs/system-info.md)
         - `#`: Title of the information.
         - `!`: Commands to fetch the information.
         - `--`: Add a bullet character and mute the style of the next information(s).
