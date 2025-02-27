@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+chmod 755 /etc/update-motd.d/motd-raspberrypi
+chown root:root /etc/update-motd.d/motd-raspberrypi
